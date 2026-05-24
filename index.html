@@ -330,15 +330,15 @@
     .hero-parallax {
       position: relative;
       width: 100%;
-      min-height: 100vh;
-      min-height: 100svh;
+      height: 100vh;
+      height: 100svh;
       overflow: hidden;
       z-index: 1;
     }
 
     .hero-video-wrap {
       position: absolute;
-      inset: 0;
+      top: 0; left: 0;
       width: 100%;
       height: 100%;
       z-index: 2;
@@ -349,16 +349,23 @@
 
     .hero-video-inner {
       position: absolute;
-      inset: 0;
+      top: 0; left: 0;
       width: 100%;
       height: 100%;
     }
 
     #hero-video {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      min-width: 100%;
+      min-height: 100%;
       width: 100%;
       height: 100%;
       display: block;
       object-fit: cover;
+      object-position: center center;
       will-change: contents;
     }
 
@@ -374,10 +381,11 @@
     }
 
     .hero-overlay-content {
-      position: relative;
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
       z-index: 10;
-      min-height: 100vh;
-      min-height: 100svh;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -1468,26 +1476,19 @@
 
     /* ── MOBILE VIDEO SAFETY ── */
     @media (hover: none), (pointer: coarse) {
-      /* Ensure video container is never pure black on mobile */
       .hero-video-wrap {
         background: #0a0a0a;
       }
-      /* iOS needs explicit 100% width/height for object-fit:cover to work */
+      /* iOS Safari: force GPU layer to prevent black flash */
       #hero-video {
-        position: absolute;
-        top: 0; left: 0;
-        width: 100% !important;
-        height: 100% !important;
-        object-fit: cover;
-        transform: translateZ(0);
-        -webkit-transform: translateZ(0);
+        -webkit-transform: translate(-50%, -50%) translateZ(0);
+        transform: translate(-50%, -50%) translateZ(0);
       }
-      /* Disable will-change on mobile to avoid memory pressure */
       .hero-video-inner,
       .hero-overlay-content {
         will-change: auto;
       }
-      /* Make hero text readable on small screens */
+      /* Readable text on small screens */
       .hero-overlay-wordmark {
         font-size: clamp(3.5rem, 18vw, 7rem);
         letter-spacing: 8px;
@@ -1497,15 +1498,14 @@
         letter-spacing: 4px;
         text-align: center;
       }
-      .scroll-ind-label {
-        font-size: .65rem;
-      }
     }
 
     /* GSAP needs to control hero-parallax dimensions — no overrides here */
     #heroPinStage {
+      height: 100vh;
       height: 100svh;
       width: 100%;
+      overflow: hidden;
     }
   </style>
 </head>
