@@ -1282,11 +1282,25 @@
     });
 
     // Remove preloader
-    window.addEventListener('load', () => {
-      setTimeout(() => {
+   // Remove preloader with a Mobile Failsafe
+    function hidePreloader() {
+      if (document.body.classList.contains('loading')) {
         document.body.classList.remove('loading');
-      }, 400);
+        // Force a scroll trigger refresh just in case heights changed
+        if (typeof ScrollTrigger !== 'undefined') {
+          setTimeout(() => ScrollTrigger.refresh(), 200);
+        }
+      }
+    }
+
+    // Standard load completion
+    window.addEventListener('load', () => {
+      setTimeout(hidePreloader, 400);
     });
+
+    // FAILSAFE: If the mobile network is slow or the video gets blocked,
+    // force the loading screen to hide after exactly 3.5 seconds.
+    setTimeout(hidePreloader, 3500);
 
     /* ── HERO SCROLL LOGIC & ADAPTIVE SCRUBBING ── */
     const heroVideo = document.getElementById('hero-video');
