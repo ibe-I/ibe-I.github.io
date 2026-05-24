@@ -369,6 +369,24 @@
       will-change: contents;
     }
 
+    /* ── On portrait mobile the video is landscape so object-fit:cover
+       crops the sides and shows only the centre of the frame.
+       Fix: size the video so its full width is always visible.          ── */
+    @media (max-width: 768px) and (orientation: portrait) {
+      #hero-video {
+        /* Let width fill the screen; height will overflow (cropped top/bottom).
+           This keeps the full horizontal frame — the whole car — visible.   */
+        width: 100% !important;
+        height: auto !important;
+        min-width: 100%;
+        min-height: unset;
+        top: 50%;
+        left: 0;
+        transform: translateY(-50%);
+        object-fit: unset;
+      }
+    }
+
     .hero-video-overlay {
       position: absolute;
       inset: 0;
