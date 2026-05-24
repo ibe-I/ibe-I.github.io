@@ -83,6 +83,13 @@
       transition: background .5s, color .4s;
     }
 
+    /* ── MOBILE: restore normal cursor & touch behaviour ── */
+    @media (hover: none), (pointer: coarse) {
+      body { cursor: auto; }
+      #cur, #cur-ring { display: none !important; }
+      .btn-p, .nav-ctrl, .nav-cta, a, button { cursor: pointer; }
+    }
+
     /* GRAIN */
     body::before {
       content: '';
@@ -1456,6 +1463,25 @@
     @media(max-width:600px) {
       .feat-card { padding: 2rem 1.5rem }
       .sec { padding: 5rem 1.5rem }
+      nav { padding: 1rem 1.2rem; }
+    }
+
+    /* ── MOBILE VIDEO SAFETY ── */
+    @media (hover: none), (pointer: coarse) {
+      /* Ensure video container is never pure black on mobile */
+      .hero-video-wrap {
+        background: #0a0a0a;
+      }
+      /* Prevent GPU compositing stall on low-end Android */
+      #hero-video {
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
+      }
+      /* Disable will-change on mobile to avoid memory pressure */
+      .hero-video-inner,
+      .hero-overlay-content {
+        will-change: auto;
+      }
     }
 
     .hero-parallax {
@@ -1507,14 +1533,26 @@
 
   <div class="hero-parallax" id="heroPinStage">
     <div class="hero-video-wrap" id="videoWrap">
-      <div class="hero-depth-vignette" id="heroVignette"></div>
-      <div class="hero-video-inner">
-        <video id="hero-video" preload="auto" muted playsinline webkit-playsinline style="width: 100%; height: 100%; object-fit: cover;">
-          <source src="video_scrub.mp4" type="video/mp4" />
-        </video>
-        <div class="hero-video-overlay"></div>
+        <div class="hero-depth-vignette" id="heroVignette"></div>
+        <div class="hero-video-inner">
+          <video 
+            id="hero-video" 
+            preload="auto" 
+            autoplay 
+            loop 
+            muted 
+            playsinline 
+            webkit-playsinline 
+            x5-playsinline
+            x5-video-player-type="h5"
+            x5-video-player-fullscreen="false"
+            crossorigin="anonymous" 
+            style="width: 100%; height: 100%; object-fit: cover; background:#060606;">
+            <source src="video_scrub.mp4" type="video/mp4" />
+          </video>
+          <div class="hero-video-overlay"></div>
+        </div>
       </div>
-    </div>
 
     <div class="hero-overlay-content">
       <h1 class="hero-overlay-wordmark" id="heroWordmark">طارش</h1>
@@ -1911,23 +1949,33 @@
 
     langToggle.addEventListener('click', () => {
       applyLang(currentLang === 'ar' ? 'en' : 'ar');
-      ScrollTrigger.refresh();
+      if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh();
     });
     applyLang('ar');
 
     /* ── WEGIC-STYLE SMOOTH SCROLL & GSAP ENGINE ── */
     gsap.registerPlugin(ScrollTrigger);
 
-    const lenis = new Lenis({
-      duration: 1.4,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      orientation: 'vertical',
-      smoothWheel: true,
-      wheelMultiplier: 1
-    });
+    // Lenis smooth scroll — desktop only. On mobile, native scroll is smoother
+    // and Lenis can interfere with iOS momentum / GSAP ScrollTrigger pinning.
+    const lenisEnabled = !(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+      || navigator.maxTouchPoints > 1);
 
-    gsap.ticker.add((time) => { lenis.raf(time * 1000) });
-    gsap.ticker.lagSmoothing(0);
+    let lenis;
+    if (lenisEnabled) {
+      lenis = new Lenis({
+        duration: 1.4,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        orientation: 'vertical',
+        smoothWheel: true,
+        wheelMultiplier: 1
+      });
+      gsap.ticker.add((time) => { lenis.raf(time * 1000) });
+      gsap.ticker.lagSmoothing(0);
+    } else {
+      // On mobile: wire ScrollTrigger to native scroll
+      ScrollTrigger.normalizeScroll(true);
+    }
 
     // Dynamic Header State Switcher
     document.getElementById('nav').classList.add('hero-active');
@@ -1938,30 +1986,35 @@
     });
 
     /* ── HERO SCROLL-SCRUB ENGINE ── */
-    const heroVideo = document.getElementById('hero-video');
+    const herovideo = document.getElementById('hero-video');
     const scrubBar  = document.getElementById('scrubBar');
-    const HAS_FASTSEEK = heroVideo && typeof heroVideo.fastSeek === 'function';
 
-    // Direct seek — All-I video makes every frame instant, no GOP backlog
+    // ── Mobile detection ──
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+      || (navigator.maxTouchPoints > 1);
+
+    // ── Seek helper ──
     function seekVideo(progress) {
-      if (!heroVideo || heroVideo.readyState < 2) return;
-      if (!isFinite(heroVideo.duration) || heroVideo.duration === 0) return;
-      const t = Math.max(0, Math.min(heroVideo.duration, progress * heroVideo.duration));
-      if (HAS_FASTSEEK) {
-        heroVideo.fastSeek(t);
-      } else {
-        heroVideo.currentTime = t;
-      }
+      if (!herovideo || herovideo.readyState < 1) return;
+      if (!isFinite(herovideo.duration) || herovideo.duration === 0) return;
+      const t = Math.max(0, Math.min(herovideo.duration, progress * herovideo.duration));
+      try {
+        if (typeof herovideo.fastSeek === 'function') {
+          herovideo.fastSeek(t);
+        } else {
+          herovideo.currentTime = t;
+        }
+      } catch(e) {}
     }
 
     function initHeroScroll() {
       if (initHeroScroll._done) return;
       initHeroScroll._done = true;
 
-      heroVideo.pause();
-      heroVideo.loop        = false;
-      heroVideo.muted       = true;
-      heroVideo.currentTime = 0;
+      herovideo.pause();
+      herovideo.loop        = false;
+      herovideo.muted       = true;
+      herovideo.currentTime = 0;
 
       const nav = document.getElementById('nav');
 
@@ -1972,7 +2025,7 @@
           end:          '+=150%',
           pin:          true,
           pinSpacing:   true,
-          scrub:        0.6,
+          scrub:        isMobile ? 1.2 : 0.6,
           anticipatePin: 1,
           onEnter:      () => { nav.classList.add('hero-active'); },
           onLeave:      () => { nav.classList.remove('hero-active'); },
@@ -1993,10 +2046,71 @@
         .to('#heroEndReveal',     { opacity: 1,                                     duration: 0.8 }, 3.6);
     }
 
-    if (heroVideo) {
-      heroVideo.addEventListener('loadedmetadata', initHeroScroll);
-      if (heroVideo.readyState >= 1) initHeroScroll();
+    if (herovideo) {
+      // ── On mobile: keep autoplay running so the browser paints the video.
+      //    On desktop: use the scrub-control approach (pause + seek).
+      if (isMobile) {
+        // Keep video playing normally on mobile (autoplay/loop are already set).
+        // Still wire up the ScrollTrigger for the text animations, but DON'T
+        // pause/seek the video — just let it play through.
+        const mobileUnlock = () => {
+          const p = herovideo.play();
+          if (p && typeof p.catch === 'function') p.catch(() => {});
+          document.body.removeEventListener('touchstart', mobileUnlock);
+          document.body.removeEventListener('click', mobileUnlock);
+        };
+        // Try immediately, retry on first interaction
+        mobileUnlock();
+        document.body.addEventListener('touchstart', mobileUnlock, { once: true });
+        document.body.addEventListener('click',      mobileUnlock, { once: true });
+
+        // Override initHeroScroll so it does NOT pause the video on mobile
+        initHeroScroll = function() {
+          if (initHeroScroll._done) return;
+          initHeroScroll._done = true;
+
+          herovideo.loop  = true;
+          herovideo.muted = true;
+
+          const nav = document.getElementById('nav');
+          const tl = gsap.timeline({
+            scrollTrigger: {
+              trigger:      '#heroPinStage',
+              start:        'top top',
+              end:          '+=150%',
+              pin:          true,
+              pinSpacing:   true,
+              scrub:        1.5,
+              anticipatePin: 1,
+              onEnter:      () => { nav.classList.add('hero-active'); },
+              onLeave:      () => { nav.classList.remove('hero-active'); },
+              onEnterBack:  () => { nav.classList.add('hero-active'); },
+              onLeaveBack:  () => { nav.classList.remove('hero-active'); },
+              onUpdate: (self) => {
+                if (scrubBar) scrubBar.style.width = (self.progress * 100).toFixed(1) + '%';
+              }
+            }
+          });
+
+          tl.to('#scrollInd',       { opacity: 0, y: 15,                              duration: 0.3 }, 0)
+            .to('#heroSub',          { opacity: 0, y: -20,                             duration: 0.5 }, 0.1)
+            .to('#heroWordmark',     { scale: 1.12, letterSpacing: '22px', opacity: 0, duration: 0.8 }, 0.2)
+            .to('.hero-video-inner', { scale: 1.06,                                    duration: 1.5 }, 1.0)
+            .to('#heroVignette',     { opacity: 1, background: 'rgba(0,0,0,0.92)',     duration: 0.8 }, 3.2)
+            .to('#heroEndReveal',    { opacity: 1,                                     duration: 0.8 }, 3.6);
+        };
+      } else {
+        // Desktop: full scroll-scrub (pause + seek per frame)
+        const desktopUnlock = () => {
+          herovideo.play().then(() => { herovideo.pause(); }).catch(() => {});
+        };
+        desktopUnlock();
+      }
+
+      herovideo.addEventListener('loadedmetadata', initHeroScroll);
+      if (herovideo.readyState >= 1) initHeroScroll();
     }
+    
 
     /* ── MULTI-SECTION REVEAL ARCHITECTURE ── */
     gsap.fromTo('.hero-text-sec .hero-hl', 
