@@ -1472,8 +1472,13 @@
       .hero-video-wrap {
         background: #0a0a0a;
       }
-      /* Prevent GPU compositing stall on low-end Android */
+      /* iOS needs explicit 100% width/height for object-fit:cover to work */
       #hero-video {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover;
         transform: translateZ(0);
         -webkit-transform: translateZ(0);
       }
@@ -1482,18 +1487,25 @@
       .hero-overlay-content {
         will-change: auto;
       }
+      /* Make hero text readable on small screens */
+      .hero-overlay-wordmark {
+        font-size: clamp(3.5rem, 18vw, 7rem);
+        letter-spacing: 8px;
+      }
+      .hero-overlay-sub {
+        font-size: .72rem;
+        letter-spacing: 4px;
+        text-align: center;
+      }
+      .scroll-ind-label {
+        font-size: .65rem;
+      }
     }
 
-    .hero-parallax {
-      position: relative;
-      height: auto !important;
-      min-height: 100svh !important;
-      overflow: visible !important;
-    }
-
-    .hero-pin-stage {
-      height: 100svh !important;
-      min-height: 100svh !important;
+    /* GSAP needs to control hero-parallax dimensions — no overrides here */
+    #heroPinStage {
+      height: 100svh;
+      width: 100%;
     }
   </style>
 </head>
@@ -1953,28 +1965,27 @@
     });
     applyLang('ar');
 
-    /* ── WEGIC-STYLE SMOOTH SCROLL & GSAP ENGINE ── */
+    /* ── SMOOTH SCROLL & GSAP ENGINE ── */
     gsap.registerPlugin(ScrollTrigger);
 
-    // Lenis smooth scroll — desktop only. On mobile, native scroll is smoother
-    // and Lenis can interfere with iOS momentum / GSAP ScrollTrigger pinning.
-    const lenisEnabled = !(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-      || navigator.maxTouchPoints > 1);
+    // ── Mobile: normalizeScroll lets GSAP intercept touch events for pinning.
+    //    Must be called before any ScrollTrigger.create().
+    //    Desktop: use Lenis for buttery smooth wheel scroll.
+    const isTouchDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+      || navigator.maxTouchPoints > 1;
 
-    let lenis;
-    if (lenisEnabled) {
-      lenis = new Lenis({
+    if (isTouchDevice) {
+      ScrollTrigger.normalizeScroll(true);
+    } else {
+      const lenis = new Lenis({
         duration: 1.4,
         easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
         orientation: 'vertical',
         smoothWheel: true,
         wheelMultiplier: 1
       });
-      gsap.ticker.add((time) => { lenis.raf(time * 1000) });
+      gsap.ticker.add((time) => { lenis.raf(time * 1000); });
       gsap.ticker.lagSmoothing(0);
-    } else {
-      // On mobile: wire ScrollTrigger to native scroll
-      ScrollTrigger.normalizeScroll(true);
     }
 
     // Dynamic Header State Switcher
@@ -1990,23 +2001,21 @@
     const scrubBar  = document.getElementById('scrubBar');
 
     // ── Mobile detection ──
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-      || (navigator.maxTouchPoints > 1);
+    const isMobile = isTouchDevice;
 
-    // ── Seek helper ──
+    // ── Seek helper — safe across all browsers ──
     function seekVideo(progress) {
-      if (!herovideo || herovideo.readyState < 1) return;
+      if (!herovideo) return;
+      if (herovideo.readyState < 1) return;
       if (!isFinite(herovideo.duration) || herovideo.duration === 0) return;
       const t = Math.max(0, Math.min(herovideo.duration, progress * herovideo.duration));
       try {
-        if (typeof herovideo.fastSeek === 'function') {
-          herovideo.fastSeek(t);
-        } else {
-          herovideo.currentTime = t;
-        }
+        if (typeof herovideo.fastSeek === 'function') herovideo.fastSeek(t);
+        else herovideo.currentTime = t;
       } catch(e) {}
     }
 
+    // ── Single initHeroScroll that works on mobile + desktop ──
     function initHeroScroll() {
       if (initHeroScroll._done) return;
       initHeroScroll._done = true;
@@ -2020,17 +2029,17 @@
 
       const tl = gsap.timeline({
         scrollTrigger: {
-          trigger:      '#heroPinStage',
-          start:        'top top',
-          end:          '+=150%',
-          pin:          true,
-          pinSpacing:   true,
-          scrub:        isMobile ? 1.2 : 0.6,
+          trigger:       '#heroPinStage',
+          start:         'top top',
+          end:           '+=150%',
+          pin:           true,
+          pinSpacing:    true,
+          scrub:         isMobile ? 1.8 : 0.6,
           anticipatePin: 1,
-          onEnter:      () => { nav.classList.add('hero-active'); },
-          onLeave:      () => { nav.classList.remove('hero-active'); },
-          onEnterBack:  () => { nav.classList.add('hero-active'); },
-          onLeaveBack:  () => { nav.classList.remove('hero-active'); },
+          onEnter:       () => nav.classList.add('hero-active'),
+          onLeave:       () => nav.classList.remove('hero-active'),
+          onEnterBack:   () => nav.classList.add('hero-active'),
+          onLeaveBack:   () => nav.classList.remove('hero-active'),
           onUpdate: (self) => {
             if (scrubBar) scrubBar.style.width = (self.progress * 100).toFixed(1) + '%';
             seekVideo(self.progress);
@@ -2047,66 +2056,32 @@
     }
 
     if (herovideo) {
-      // ── On mobile: keep autoplay running so the browser paints the video.
-      //    On desktop: use the scrub-control approach (pause + seek).
-      if (isMobile) {
-        // Keep video playing normally on mobile (autoplay/loop are already set).
-        // Still wire up the ScrollTrigger for the text animations, but DON'T
-        // pause/seek the video — just let it play through.
-        const mobileUnlock = () => {
-          const p = herovideo.play();
-          if (p && typeof p.catch === 'function') p.catch(() => {});
-          document.body.removeEventListener('touchstart', mobileUnlock);
-          document.body.removeEventListener('click', mobileUnlock);
-        };
-        // Try immediately, retry on first interaction
-        mobileUnlock();
-        document.body.addEventListener('touchstart', mobileUnlock, { once: true });
-        document.body.addEventListener('click',      mobileUnlock, { once: true });
+      // ── Mobile: iOS/Android won't allow currentTime seeks until the video
+      //    has been "user-gesture unlocked". We do a play→pause on first touch
+      //    so the decoder warms up and scrubbing works without black frames.
+      let videoUnlocked = false;
 
-        // Override initHeroScroll so it does NOT pause the video on mobile
-        initHeroScroll = function() {
-          if (initHeroScroll._done) return;
-          initHeroScroll._done = true;
-
-          herovideo.loop  = true;
-          herovideo.muted = true;
-
-          const nav = document.getElementById('nav');
-          const tl = gsap.timeline({
-            scrollTrigger: {
-              trigger:      '#heroPinStage',
-              start:        'top top',
-              end:          '+=150%',
-              pin:          true,
-              pinSpacing:   true,
-              scrub:        1.5,
-              anticipatePin: 1,
-              onEnter:      () => { nav.classList.add('hero-active'); },
-              onLeave:      () => { nav.classList.remove('hero-active'); },
-              onEnterBack:  () => { nav.classList.add('hero-active'); },
-              onLeaveBack:  () => { nav.classList.remove('hero-active'); },
-              onUpdate: (self) => {
-                if (scrubBar) scrubBar.style.width = (self.progress * 100).toFixed(1) + '%';
-              }
-            }
-          });
-
-          tl.to('#scrollInd',       { opacity: 0, y: 15,                              duration: 0.3 }, 0)
-            .to('#heroSub',          { opacity: 0, y: -20,                             duration: 0.5 }, 0.1)
-            .to('#heroWordmark',     { scale: 1.12, letterSpacing: '22px', opacity: 0, duration: 0.8 }, 0.2)
-            .to('.hero-video-inner', { scale: 1.06,                                    duration: 1.5 }, 1.0)
-            .to('#heroVignette',     { opacity: 1, background: 'rgba(0,0,0,0.92)',     duration: 0.8 }, 3.2)
-            .to('#heroEndReveal',    { opacity: 1,                                     duration: 0.8 }, 3.6);
-        };
-      } else {
-        // Desktop: full scroll-scrub (pause + seek per frame)
-        const desktopUnlock = () => {
-          herovideo.play().then(() => { herovideo.pause(); }).catch(() => {});
-        };
-        desktopUnlock();
+      function unlockVideo() {
+        if (videoUnlocked) return;
+        videoUnlocked = true;
+        const p = herovideo.play();
+        if (p && p.then) {
+          p.then(() => {
+            herovideo.pause();
+            herovideo.currentTime = 0;
+            // Now that browser has unlocked the decoder, init if not yet done
+            initHeroScroll();
+          }).catch(() => {});
+        }
       }
 
+      // Try once on load (works on Android Chrome, fails silently on iOS)
+      unlockVideo();
+      // Retry on very first user touch/click — guaranteed to work on iOS
+      document.addEventListener('touchstart', unlockVideo, { once: true, passive: true });
+      document.addEventListener('click',      unlockVideo, { once: true });
+
+      // Also init from metadata event (desktop path, or Android after unlock)
       herovideo.addEventListener('loadedmetadata', initHeroScroll);
       if (herovideo.readyState >= 1) initHeroScroll();
     }
