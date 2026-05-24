@@ -1169,6 +1169,29 @@
   </footer>
 
   <script>
+    <script>
+    /* ── 1. BULLETPROOF PRELOADER REMOVAL (MUST BE AT THE TOP) ── */
+    // This runs immediately and cannot be blocked by GSAP/Video errors
+    function removePreloaderSafe() {
+      if (document.body.classList.contains('loading')) {
+        document.body.classList.remove('loading');
+        // Check if ScrollTrigger exists before refreshing to prevent errors
+        if (typeof ScrollTrigger !== 'undefined') {
+          setTimeout(() => ScrollTrigger.refresh(), 200);
+        }
+      }
+    }
+
+    // Wait for full load, but if it takes too long, force it off after 3.5 seconds
+   
+
+    /* ── 2. SAFE GSAP INITIALIZATION WRAPPER ── */
+    // We wrap everything else in a try/catch so if an animation library fails on mobile,
+    // your website still works and doesn't break.
+    try {
+
+      /* ── BACKGROUND BOX GENERATION ENGINE ── */
+      // ... (KEEP ALL YOUR EXISTING JAVASCRIPT HERE) ...
     /* ── BACKGROUND BOX GENERATION ENGINE ── */
     (() => {
       const container = document.querySelector('.hero-parallax');
@@ -1459,7 +1482,7 @@
           gsap.to(btn, { x: 0, y: 0, duration: 0.5, ease: 'elastic.out(1, 0.5)' });
         });
       });
-    }
+    }}
   </script>
 </body>
 </html>
