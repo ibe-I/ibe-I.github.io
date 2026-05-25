@@ -129,6 +129,12 @@
       transition: background .5s, color .4s;
     }
 
+    @media (hover: none) and (pointer: coarse) {
+      body { cursor: auto; }
+      #cur, #cur-ring { display: none !important; }
+      a, button, .feat-card, .how-card, .stat-box, .split-half, .city, .nav-ctrl { cursor: pointer; }
+    }
+
     /* GRAIN */
     body::before {
       content: '';
@@ -484,10 +490,15 @@
 
     .hero-hl {
       font-family: var(--ff-disp);
-      font-size: clamp(3rem, 7vw, 6.5rem);
-      line-height: 1.05;
+      font-size: clamp(2rem, 4.5vw, 4rem);
+      line-height: 1.2;
       letter-spacing: 2px;
       opacity: 1;
+    }
+
+    [data-lang="ar"] .hero-hl {
+      font-size: clamp(1.6rem, 3.5vw, 3.2rem);
+      line-height: 1.3;
     }
 
     .hero-hl .acc {
@@ -1930,23 +1941,26 @@
       }
     })();
 
-    /* ── CURSOR ENGINE ── */
-    const cur = document.getElementById('cur'), ring = document.getElementById('cur-ring');
-    let mx = 0, my = 0;
-    document.addEventListener('mousemove', e => {
-      mx = e.clientX; my = e.clientY;
-      cur.style.left = mx + 'px'; cur.style.top = my + 'px';
-      gsap.to(ring, { left: mx, top: my, duration: 0.25, ease: 'power2.out' });
-    });
-    
-    document.addEventListener('mousedown', () => document.body.classList.add('clicking'));
-    document.addEventListener('mouseup', () => document.body.classList.remove('clicking'));
+    /* ── CURSOR ENGINE (desktop/mouse only) ── */
+    const isTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    if (!isTouch) {
+      const cur = document.getElementById('cur'), ring = document.getElementById('cur-ring');
+      let mx = 0, my = 0;
+      document.addEventListener('mousemove', e => {
+        mx = e.clientX; my = e.clientY;
+        cur.style.left = mx + 'px'; cur.style.top = my + 'px';
+        gsap.to(ring, { left: mx, top: my, duration: 0.25, ease: 'power2.out' });
+      });
 
-    const hoverEls = 'a, button, .feat-card, .how-card, .stat-box, .split-half, .city, .nav-ctrl';
-    document.querySelectorAll(hoverEls).forEach(el => {
-      el.addEventListener('mouseenter', () => document.body.classList.add('hovering'));
-      el.addEventListener('mouseleave', () => document.body.classList.remove('hovering'));
-    });
+      document.addEventListener('mousedown', () => document.body.classList.add('clicking'));
+      document.addEventListener('mouseup', () => document.body.classList.remove('clicking'));
+
+      const hoverEls = 'a, button, .feat-card, .how-card, .stat-box, .split-half, .city, .nav-ctrl';
+      document.querySelectorAll(hoverEls).forEach(el => {
+        el.addEventListener('mouseenter', () => document.body.classList.add('hovering'));
+        el.addEventListener('mouseleave', () => document.body.classList.remove('hovering'));
+      });
+    }
 
     /* ── LOCALIZATION SYSTEMS ── */
     let currentLang = 'ar';
