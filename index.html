@@ -2009,16 +2009,23 @@
     /* ── WEGIC-STYLE SMOOTH SCROLL & GSAP ENGINE ── */
     gsap.registerPlugin(ScrollTrigger);
 
-    const lenis = new Lenis({
-      duration: 1.4,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      orientation: 'vertical',
-      smoothWheel: true,
-      wheelMultiplier: 1
-    });
+    const isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 
-    gsap.ticker.add((time) => { lenis.raf(time * 1000) });
-    gsap.ticker.lagSmoothing(0);
+    if (!isTouchDevice) {
+      const lenis = new Lenis({
+        duration: 1.4,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        orientation: 'vertical',
+        smoothWheel: true,
+        wheelMultiplier: 1
+      });
+      gsap.ticker.add((time) => { lenis.raf(time * 1000) });
+      gsap.ticker.lagSmoothing(0);
+      lenis.on('scroll', ScrollTrigger.update);
+    } else {
+      gsap.ticker.lagSmoothing(0);
+      window.addEventListener('scroll', () => ScrollTrigger.update(), { passive: true });
+    }
 
     // Dynamic Header State Switcher
     document.getElementById('nav').classList.add('hero-active');
