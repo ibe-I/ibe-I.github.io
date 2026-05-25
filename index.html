@@ -83,13 +83,6 @@
       transition: background .5s, color .4s;
     }
 
-    /* ── MOBILE: restore normal cursor & touch behaviour ── */
-    @media (hover: none), (pointer: coarse) {
-      body { cursor: auto; }
-      #cur, #cur-ring { display: none !important; }
-      .btn-p, .nav-ctrl, .nav-cta, a, button { cursor: pointer; }
-    }
-
     /* GRAIN */
     body::before {
       content: '';
@@ -330,15 +323,15 @@
     .hero-parallax {
       position: relative;
       width: 100%;
-      height: 100vh;
-      height: 100svh;
+      min-height: 100vh;
+      min-height: 100svh;
       overflow: hidden;
       z-index: 1;
     }
 
     .hero-video-wrap {
       position: absolute;
-      top: 0; left: 0;
+      inset: 0;
       width: 100%;
       height: 100%;
       z-index: 2;
@@ -349,42 +342,17 @@
 
     .hero-video-inner {
       position: absolute;
-      top: 0; left: 0;
+      inset: 0;
       width: 100%;
       height: 100%;
     }
 
     #hero-video {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      min-width: 100%;
-      min-height: 100%;
       width: 100%;
       height: 100%;
       display: block;
       object-fit: cover;
-      object-position: center center;
       will-change: contents;
-    }
-
-    /* ── On portrait mobile the video is landscape so object-fit:cover
-       crops the sides and shows only the centre of the frame.
-       Fix: size the video so its full width is always visible.          ── */
-    @media (max-width: 768px) and (orientation: portrait) {
-      #hero-video {
-        /* Let width fill the screen; height will overflow (cropped top/bottom).
-           This keeps the full horizontal frame — the whole car — visible.   */
-        width: 100% !important;
-        height: auto !important;
-        min-width: 100%;
-        min-height: unset;
-        top: 50%;
-        left: 0;
-        transform: translateY(-50%);
-        object-fit: unset;
-      }
     }
 
     .hero-video-overlay {
@@ -399,11 +367,10 @@
     }
 
     .hero-overlay-content {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
+      position: relative;
       z-index: 10;
+      min-height: 100vh;
+      min-height: 100svh;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -1489,36 +1456,18 @@
     @media(max-width:600px) {
       .feat-card { padding: 2rem 1.5rem }
       .sec { padding: 5rem 1.5rem }
-      nav { padding: 1rem 1.2rem; }
     }
 
-    /* ── MOBILE VIDEO SAFETY ── */
-    @media (hover: none), (pointer: coarse) {
-      .hero-video-wrap {
-        background: #0a0a0a;
-      }
-      .hero-video-inner,
-      .hero-overlay-content {
-        will-change: auto;
-      }
-      /* Readable text on small screens */
-      .hero-overlay-wordmark {
-        font-size: clamp(3.5rem, 18vw, 7rem);
-        letter-spacing: 8px;
-      }
-      .hero-overlay-sub {
-        font-size: .72rem;
-        letter-spacing: 4px;
-        text-align: center;
-      }
+    .hero-parallax {
+      position: relative;
+      height: auto !important;
+      min-height: 100svh !important;
+      overflow: visible !important;
     }
 
-    /* GSAP needs to control hero-parallax dimensions — no overrides here */
-    #heroPinStage {
-      height: 100vh;
-      height: 100svh;
-      width: 100%;
-      overflow: hidden;
+    .hero-pin-stage {
+      height: 100svh !important;
+      min-height: 100svh !important;
     }
   </style>
 </head>
@@ -1558,26 +1507,28 @@
 
   <div class="hero-parallax" id="heroPinStage">
     <div class="hero-video-wrap" id="videoWrap">
-        <div class="hero-depth-vignette" id="heroVignette"></div>
-        <div class="hero-video-inner">
-          <video 
-            id="hero-video" 
-            preload="auto" 
-            autoplay 
-            loop 
-            muted 
-            playsinline 
-            webkit-playsinline 
-            x5-playsinline
-            x5-video-player-type="h5"
-            x5-video-player-fullscreen="false"
-            crossorigin="anonymous" 
-            style="width: 100%; height: 100%; object-fit: cover; background:#060606;">
-            <source src="video_scrub.mp4" type="video/mp4" />
-          </video>
-          <div class="hero-video-overlay"></div>
-        </div>
+      <div class="hero-depth-vignette" id="heroVignette"></div>
+      <div class="hero-video-inner">
+        <video id="hero-video" preload="auto" muted playsinline webkit-playsinline style="width: 100%; height: 100%; object-fit: cover;">
+          <source id="hero-video-src" src="video_scrub.mp4" type="video/mp4" />
+        </video>
+        <script>
+          // Swap video source for mobile phones before the browser fetches anything
+          (function() {
+            const isMobile = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+              || (window.innerWidth <= 768 && 'ontouchstart' in window);
+            if (isMobile) {
+              const src = document.getElementById('hero-video-src');
+              if (src) {
+                src.src = 'video_scrub2.mp4';
+                document.getElementById('hero-video').load();
+              }
+            }
+          })();
+        </script>
+        <div class="hero-video-overlay"></div>
       </div>
+    </div>
 
     <div class="hero-overlay-content">
       <h1 class="hero-overlay-wordmark" id="heroWordmark">طارش</h1>
@@ -1974,32 +1925,23 @@
 
     langToggle.addEventListener('click', () => {
       applyLang(currentLang === 'ar' ? 'en' : 'ar');
-      if (typeof ScrollTrigger !== 'undefined') ScrollTrigger.refresh();
+      ScrollTrigger.refresh();
     });
     applyLang('ar');
 
-    /* ── SMOOTH SCROLL & GSAP ENGINE ── */
+    /* ── WEGIC-STYLE SMOOTH SCROLL & GSAP ENGINE ── */
     gsap.registerPlugin(ScrollTrigger);
 
-    // ── Mobile: normalizeScroll lets GSAP intercept touch events for pinning.
-    //    Must be called before any ScrollTrigger.create().
-    //    Desktop: use Lenis for buttery smooth wheel scroll.
-    const isTouchDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-      || navigator.maxTouchPoints > 1;
+    const lenis = new Lenis({
+      duration: 1.4,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      orientation: 'vertical',
+      smoothWheel: true,
+      wheelMultiplier: 1
+    });
 
-    if (isTouchDevice) {
-      ScrollTrigger.normalizeScroll(true);
-    } else {
-      const lenis = new Lenis({
-        duration: 1.4,
-        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-        orientation: 'vertical',
-        smoothWheel: true,
-        wheelMultiplier: 1
-      });
-      gsap.ticker.add((time) => { lenis.raf(time * 1000); });
-      gsap.ticker.lagSmoothing(0);
-    }
+    gsap.ticker.add((time) => { lenis.raf(time * 1000) });
+    gsap.ticker.lagSmoothing(0);
 
     // Dynamic Header State Switcher
     document.getElementById('nav').classList.add('hero-active');
@@ -2010,49 +1952,46 @@
     });
 
     /* ── HERO SCROLL-SCRUB ENGINE ── */
-    const herovideo = document.getElementById('hero-video');
+    const heroVideo = document.getElementById('hero-video');
     const scrubBar  = document.getElementById('scrubBar');
+    const HAS_FASTSEEK = heroVideo && typeof heroVideo.fastSeek === 'function';
 
-    // ── Mobile detection ──
-    const isMobile = isTouchDevice;
-
-    // ── Seek helper — safe across all browsers ──
+    // Direct seek — All-I video makes every frame instant, no GOP backlog
     function seekVideo(progress) {
-      if (!herovideo) return;
-      if (herovideo.readyState < 1) return;
-      if (!isFinite(herovideo.duration) || herovideo.duration === 0) return;
-      const t = Math.max(0, Math.min(herovideo.duration, progress * herovideo.duration));
-      try {
-        if (typeof herovideo.fastSeek === 'function') herovideo.fastSeek(t);
-        else herovideo.currentTime = t;
-      } catch(e) {}
+      if (!heroVideo || heroVideo.readyState < 2) return;
+      if (!isFinite(heroVideo.duration) || heroVideo.duration === 0) return;
+      const t = Math.max(0, Math.min(heroVideo.duration, progress * heroVideo.duration));
+      if (HAS_FASTSEEK) {
+        heroVideo.fastSeek(t);
+      } else {
+        heroVideo.currentTime = t;
+      }
     }
 
-    // ── Single initHeroScroll that works on mobile + desktop ──
     function initHeroScroll() {
       if (initHeroScroll._done) return;
       initHeroScroll._done = true;
 
-      herovideo.pause();
-      herovideo.loop        = false;
-      herovideo.muted       = true;
-      herovideo.currentTime = 0;
+      heroVideo.pause();
+      heroVideo.loop        = false;
+      heroVideo.muted       = true;
+      heroVideo.currentTime = 0;
 
       const nav = document.getElementById('nav');
 
       const tl = gsap.timeline({
         scrollTrigger: {
-          trigger:       '#heroPinStage',
-          start:         'top top',
-          end:           '+=150%',
-          pin:           true,
-          pinSpacing:    true,
-          scrub:         isMobile ? 1.8 : 0.6,
+          trigger:      '#heroPinStage',
+          start:        'top top',
+          end:          '+=150%',
+          pin:          true,
+          pinSpacing:   true,
+          scrub:        0.6,
           anticipatePin: 1,
-          onEnter:       () => nav.classList.add('hero-active'),
-          onLeave:       () => nav.classList.remove('hero-active'),
-          onEnterBack:   () => nav.classList.add('hero-active'),
-          onLeaveBack:   () => nav.classList.remove('hero-active'),
+          onEnter:      () => { nav.classList.add('hero-active'); },
+          onLeave:      () => { nav.classList.remove('hero-active'); },
+          onEnterBack:  () => { nav.classList.add('hero-active'); },
+          onLeaveBack:  () => { nav.classList.remove('hero-active'); },
           onUpdate: (self) => {
             if (scrubBar) scrubBar.style.width = (self.progress * 100).toFixed(1) + '%';
             seekVideo(self.progress);
@@ -2068,37 +2007,10 @@
         .to('#heroEndReveal',     { opacity: 1,                                     duration: 0.8 }, 3.6);
     }
 
-    if (herovideo) {
-      // ── Mobile: iOS/Android won't allow currentTime seeks until the video
-      //    has been "user-gesture unlocked". We do a play→pause on first touch
-      //    so the decoder warms up and scrubbing works without black frames.
-      let videoUnlocked = false;
-
-      function unlockVideo() {
-        if (videoUnlocked) return;
-        videoUnlocked = true;
-        const p = herovideo.play();
-        if (p && p.then) {
-          p.then(() => {
-            herovideo.pause();
-            herovideo.currentTime = 0;
-            // Now that browser has unlocked the decoder, init if not yet done
-            initHeroScroll();
-          }).catch(() => {});
-        }
-      }
-
-      // Try once on load (works on Android Chrome, fails silently on iOS)
-      unlockVideo();
-      // Retry on very first user touch/click — guaranteed to work on iOS
-      document.addEventListener('touchstart', unlockVideo, { once: true, passive: true });
-      document.addEventListener('click',      unlockVideo, { once: true });
-
-      // Also init from metadata event (desktop path, or Android after unlock)
-      herovideo.addEventListener('loadedmetadata', initHeroScroll);
-      if (herovideo.readyState >= 1) initHeroScroll();
+    if (heroVideo) {
+      heroVideo.addEventListener('loadedmetadata', initHeroScroll);
+      if (heroVideo.readyState >= 1) initHeroScroll();
     }
-    
 
     /* ── MULTI-SECTION REVEAL ARCHITECTURE ── */
     gsap.fromTo('.hero-text-sec .hero-hl', 
