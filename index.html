@@ -1577,8 +1577,8 @@
     <div class="hero-video-wrap" id="videoWrap">
       <div class="hero-depth-vignette" id="heroVignette"></div>
       <div class="hero-video-inner">
-        <video id="hero-video" preload="auto" muted playsinline webkit-playsinline style="width: 100%; height: 100%; object-fit: cover;">
-          <source src="video_scrub.mp4" type="video/mp4" />
+        <video id="hero-video" preload="auto" muted playsinline webkit-playsinline autoplay style="width: 100%; height: 100%; object-fit: cover;">
+          <source src="video_scrub2.mp4" type="video/mp4" />
         </video>
         <div class="hero-video-overlay"></div>
       </div>
@@ -2039,11 +2039,24 @@
     const heroVideo = document.getElementById('hero-video');
     const scrubBar  = document.getElementById('scrubBar');
     const HAS_FASTSEEK = heroVideo && typeof heroVideo.fastSeek === 'function';
+    let videoUnlocked = false;
 
-    // Direct seek — All-I video makes every frame instant, no GOP backlog
+    // iOS Safari requires play→pause before currentTime seeking works
+    function unlockVideo() {
+      if (videoUnlocked || !heroVideo) return;
+      heroVideo.muted = true;
+      heroVideo.play().then(() => {
+        heroVideo.pause();
+        heroVideo.currentTime = 0;
+        videoUnlocked = true;
+      }).catch(() => {});
+    }
+
+    // Seek with readyState fallback for mobile (iOS only requires readyState >= 1)
     function seekVideo(progress) {
-      if (!heroVideo || heroVideo.readyState < 2) return;
+      if (!heroVideo) return;
       if (!isFinite(heroVideo.duration) || heroVideo.duration === 0) return;
+      if (heroVideo.readyState < 1) return;
       const t = Math.max(0, Math.min(heroVideo.duration, progress * heroVideo.duration));
       if (HAS_FASTSEEK) {
         heroVideo.fastSeek(t);
@@ -2061,6 +2074,10 @@
       heroVideo.muted       = true;
       heroVideo.currentTime = 0;
 
+      // Force load on mobile so duration & frames are available
+      heroVideo.load();
+      unlockVideo();
+
       const nav = document.getElementById('nav');
 
       const tl = gsap.timeline({
@@ -2070,9 +2087,9 @@
           end:          '+=150%',
           pin:          true,
           pinSpacing:   true,
-          scrub:        0.6,
+          scrub:        isTouchDevice ? 1.5 : 0.6,
           anticipatePin: 1,
-          onEnter:      () => { nav.classList.add('hero-active'); },
+          onEnter:      () => { nav.classList.add('hero-active'); unlockVideo(); },
           onLeave:      () => { nav.classList.remove('hero-active'); },
           onEnterBack:  () => { nav.classList.add('hero-active'); },
           onLeaveBack:  () => { nav.classList.remove('hero-active'); },
@@ -2090,7 +2107,12 @@
     }
 
     if (heroVideo) {
+      // On mobile, also unlock on first touch
+      if (isTouchDevice) {
+        document.addEventListener('touchstart', unlockVideo, { once: true, passive: true });
+      }
       heroVideo.addEventListener('loadedmetadata', initHeroScroll);
+      heroVideo.addEventListener('canplay', initHeroScroll);
       if (heroVideo.readyState >= 1) initHeroScroll();
     }
 
