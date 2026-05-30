@@ -997,7 +997,22 @@
     .how-card:hover .how-ico {
       transform: scale(1.25) rotate(-8deg)
     }
+ .how-ico-img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 10px;
+      margin-bottom: 1.2rem;
+      display: block;
+      transition: transform .35s var(--ease);
+    }
 
+    .how-card:hover .how-ico-img {
+      transform: scale(1.03);
+    }
+
+
+    
     .how-h {
       font-family: var(--ff-cond);
       font-size: 1.25rem;
